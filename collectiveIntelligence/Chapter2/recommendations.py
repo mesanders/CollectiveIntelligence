@@ -10,12 +10,14 @@ f.close()
 
 
 # Testing the external data set.
-def verifyExists():
+def get_critic_names():
+    criticnames = []
     for i in critics:
-        for x in critics[i]:
-            print(i, ",", x,",", critics[i][x])
+        criticnames.append(i)
 
+    return criticnames
 
+criticnames = get_critic_names()
 
 print("Test 1: " + repr(critics['Lisa Rose']['Lady in the Water']))
 print("Test 2: " + repr(critics['Toby']))
@@ -41,6 +43,8 @@ print(sumOfSquaresDiff)
 
 # let's put this in a function:
 # This returns the distance based similarity score for person1, and person2
+# The closer the result is to 1 the more similar the people are
+
 def sim_distance(prefs, person1, person2):
     # Store list of shared items
     list_of_shared_items = {}
@@ -61,4 +65,70 @@ def sim_distance(prefs, person1, person2):
 
 ### Calling the function just made with the list of critics and their movies that we loaded from file
 
-print(sim_distance(critics, 'Lisa Rose', 'Gene Seymour'))
+#print(sim_distance(critics, 'Lisa Rose', 'Gene Seymour'))
+
+## Let's get all combination of pairs of people
+def pairs_of_people(criticnames):
+    # Nifty little list comprehension
+    return [(criticnames[i], criticnames[k]) for i in range(0, len(criticnames) - 1) for k in range(i + 1, len(criticnames)) ]
+
+
+combination_list = pairs_of_people(criticnames)
+
+#for per1, per2 in combination_list:
+    #print("person1: ", per1, "\t", "person2: ", per2, "\t", sim_distance(critics, per1, per2))
+
+## Pearson Correlation Score
+## The correlation coeficient is a measure of how well two sets of data fit on a straight line.
+# Another aspect of Pearson score, is that it corrects for "grade inflation."
+# The Euclidean distance score will say two critics are dissimilar because one might be consistently harsher than the other
+# Pearson correlation on the other hand checks the similarity of the the line between how they rate movies. Instead
+# of just based on the raw numbers, but how they rate movies compared to others.
+
+def sim_pearson(critics, per1, per2):
+    # Get list of mutually rated items into a dictionary, we are just using the dictionary for quick lookups. If we
+    # Used a list it would become slow with a greater number of items. Therefore we set the mapped value to 1,
+    list_of_items = {}
+    # Go through all the movies that person 1 had seen that were seen by person 2
+    for item in critics[per1]:
+        if item in critics[per2]: list_of_items[item] = 1
+
+    #Find the number of elements that are similar
+    num_similar_items = len(list_of_items)
+
+    if num_similar_items == 0: return 0
+
+    # Add up all the preferences
+    sum1 = sum([critics[per1][movie] for movie in list_of_items])
+    sum2 = sum([critics[per2][movie] for movie in list_of_items])
+
+    # Sum up the squares of each person for similar items
+    sum_of_squares_person1 = sum([pow(critics[per1][movie], 2) for movie in list_of_items])
+    sum_of_squares_person2 = sum([pow(critics[per2][movie], 2) for movie in list_of_items])
+
+    # Next step is to get the product of the similar items between each person, then take the sum of those products
+    product_sums = sum([critics[per1][movie] * critics[per2][movie] for movie in list_of_items])
+
+    # The person score is the sum of the products minus the product of the individual sums, divided by the number of
+    # movies that they have in common: which is the numerator, and then get the denomitator, which is the square root
+    # of the product of the sum_of squares for each person - sum squared for that person, divided by the number of similar items
+    step1 = product_sums - (sum1 * sum2/num_similar_items)
+    step2 = sqrt((sum_of_squares_person1 - pow(sum1, 2)/num_similar_items)* (sum_of_squares_person2 - pow(sum2, 2) / num_similar_items))
+
+    if step2 == 0: return 0
+
+    # Divide step 1 by step 2 and that is the pearson score
+    return step1/step2
+
+print("\n\n")
+
+# Test peaarson score between Lisa and Gene
+print("Lisa Rose compared to Gene Seymour for the Euclidean Distance", sim_distance(critics, 'Lisa Rose', 'Gene Seymour'))
+print("Lisa Rose compared to Gene Seymour for the Pearson Score", sim_pearson(critics, 'Lisa Rose', 'Gene Seymour'))
+
+
+for per1, per2 in combination_list:
+    print("EUCLIDEAN:", per1, "  and ", per2, "\t", sim_distance(critics, per1, per2))
+    print("PEARSON SCORE:", per1, "  and  ", per2, "\t", sim_pearson(critics, per1, per2))
+    pass
+
