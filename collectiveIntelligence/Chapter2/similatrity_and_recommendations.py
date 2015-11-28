@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+# One of the common constructs in this example is to use a dictionary.
+# When using a dictionary you will see that the .setdefault method comes up.
+# It will sect the dict[key] = default if the key is not already in the dictionary. This is good for initializing dictionaries in dictionaries.
+
+# Similarity can be measured using multiple methods. The book gives two methods: Euclidean Distance and Pearson Correlation.
+# The book notes that there are multiple methods that can be used, and it's up to the implementer. Other's include:
+# Jaccard coefficient or Manhattan distance , as long as they have the same signature and return a float where higher is worth more.
+#
+# Read http://en.wikipedia.org/wiki/Metric_%28mathematics%29#Examples
 from math import sqrt
 
 # Load Critics from text file
@@ -84,7 +93,9 @@ combination_list = pairs_of_people(criticnames)
 # The Euclidean distance score will say two critics are dissimilar because one might be consistently harsher than the other
 # Pearson correlation on the other hand checks the similarity of the the line between how they rate movies. Instead
 # of just based on the raw numbers, but how they rate movies compared to others.
-
+#
+# This method will return the result of -1 to 1. A value of 1 means, that people have exactly the same rating for
+# Every item.
 def sim_pearson(critics, per1, per2):
     # Get list of mutually rated items into a dictionary, we are just using the dictionary for quick lookups. If we
     # Used a list it would become slow with a greater number of items. Therefore we set the mapped value to 1,
@@ -120,15 +131,103 @@ def sim_pearson(critics, per1, per2):
     # Divide step 1 by step 2 and that is the pearson score
     return step1/step2
 
-print("\n\n")
-
+print()
 # Test peaarson score between Lisa and Gene
 print("Lisa Rose compared to Gene Seymour for the Euclidean Distance", sim_distance(critics, 'Lisa Rose', 'Gene Seymour'))
 print("Lisa Rose compared to Gene Seymour for the Pearson Score", sim_pearson(critics, 'Lisa Rose', 'Gene Seymour'))
+print()
+
+def show_the_scores_compared_to_eachotehr():
+    for per1, per2 in combination_list:
+        print("EUCLIDEAN:", per1, "  and ", per2, "\t", sim_distance(critics, per1, per2))
+        print("PEARSON SCORE:", per1, "  and  ", per2, "\t", sim_pearson(critics, per1, per2))
+        pass
 
 
-for per1, per2 in combination_list:
-    print("EUCLIDEAN:", per1, "  and ", per2, "\t", sim_distance(critics, per1, per2))
-    print("PEARSON SCORE:", per1, "  and  ", per2, "\t", sim_pearson(critics, per1, per2))
-    pass
+
+### Ranking Critics
+## NOw that there is a function for comparing two people, the next function scores everyone against a given person and finds
+# the closest match.
+
+# Returns the best matches for person from the critics dictionary.
+# Number of results and sim function are optional
+# Returns the top similar critics to a specific person
+def topMatches(critics, person, n=5, similarity=sim_pearson):
+    scores = [(similarity(critics, person, other), other) for other in critics if other != person]
+    scores.sort()
+    scores.reverse()
+    return scores[0:n]
+
+# Prints the top matches to Toby and the score
+print(topMatches(critics, 'Toby'))
+
+### So far the functions just find people are related, the recommendations are by taking the similarity score multiplied
+# By what they rated the item which will then give an estimation on what the first user would give the rating.
+
+# Get recommendations for a person by using a weighted average of every other user's ratings
+# The code loops through every other person in the critics dictionary. It calculates how similar they are to the pseron specified
+# It then calculates how similar each other person is to the other person. It then goes through every item for which the other person scores.
+# the final score of each item is calculated in the line "total[item+=critics[other_person][item]*sim" - The score for each
+# item is multiplied by the similarity and these products are all added together. The scores are then normalized by dividing
+# each of them by the similarity sum and sorted results are returned.
+def getRecommendations(critics, person, similarity=sim_pearson):
+    totals = {}
+    similarity_sums = {}
+    for other_person in critics:
+        # make sure the other_person and person aren't the same
+        if other_person == person: continue
+
+        sim = similarity(critics, person, other_person)
+
+        # ignore scores of zero or lower
+        if sim <= 0: continue
+
+        for item in critics[other_person]:
+            # Only give scores for movies that person has not seen
+            if item not in critics[person] or critics[person][item] == 0:
+                # Similarity * Score -- or take the weight of the score
+                totals.setdefault(item, 0)
+                totals[item] += critics[other_person][item] * sim
+
+                # sum of the similarities
+                similarity_sums.setdefault(item, 0)
+                similarity_sums[item] += sim
+
+    # Create the normalized list
+    rankings = [(total/similarity_sums[item], item) for item, total in totals.items()]
+
+    # Return the sorted list
+    rankings.sort()
+    rankings.reverse()
+    return rankings
+
+print("")
+print(getRecommendations(critics, 'Toby'))
+print(getRecommendations(critics, "Michael Phillips"))
+
+
+### It's possible to instead of finding people who are similar and recommend products for a given person,
+### that you can find products that are to find movies that are similar based on how people rated them
+### to do that the first thing you have to do is create a dictionary of movies, and who rated them instead of
+### how people rated movies
+def transformCriticsToMovies(critics):
+    result = {}
+    for person in critics:
+        for item in critics[person]:
+            result.setdefault(item, {})
+
+            # Flib item and person
+            result[item][person] = critics[person][item]
+    return result
+
+# Create a dictionary of movies
+movies = transformCriticsToMovies(critics)
+print(movies)
+# The following reuses the same function, but takes in the name of the film in the second argument instead of
+# the name of the person to compare to.
+print(topMatches(movies, 'Superman Returns'))
+
+
+## it's also possible to recommend critics for a movie:
+print(getRecommendations(movies, 'Just My Luck'))
 
