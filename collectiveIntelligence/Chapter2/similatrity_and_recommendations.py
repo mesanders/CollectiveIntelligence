@@ -231,3 +231,55 @@ print(topMatches(movies, 'Superman Returns'))
 ## it's also possible to recommend critics for a movie:
 print(getRecommendations(movies, 'Just My Luck'))
 
+### Instead of "collaborative filtering" which is the use of people's opinions and preferences for recommendations
+### one can also use item based filtering. Item-based filtering changes less often
+def calculateSimilarItems(prefs, n=10):
+    # Create a dictionary of items showing which other item they are most similar to.
+    result = {}
+
+    # INvert the preference matrix to be item-centric
+    itemPrefs = transformCriticsToMovies(prefs)
+
+    c = 0
+    for item in itemPrefs:
+        # status update for large datasets
+        c+=1
+        if c%100 == 0:
+            print("%d / %d" % (c, len(itemPrefs)))
+
+        # Find the most similar items to this one
+        scores = topMatches(itemPrefs, item)
+        result[item] = scores
+
+    return result
+
+def getRecommendedItems(prefs, itemMatch, user):
+    userRatings = prefs[user]
+    scores = {}
+    totalSimilarity = {}
+
+    # Loop over items rated by the user, and then loop over items similar to it, and weighted sum of the items that are similar
+    for (item, rating) in userRatings.items():
+        for (similarity, item2) in itemMatch[item]:
+            if item2 in userRatings:
+                continue
+
+            scores.setdefault(item2, 0)
+            scores[item2] += similarity * rating
+
+            # Sum of all the similarities
+            totalSimilarity.setdefault(item2, 0)
+            totalSimilarity[item2] += similarity 
+
+        # Divide each total score by the total weighting to get an average
+    rankings = [(score/totalSimilarity[item], item) for item, score in scores.items()]
+
+
+    # Return the rankings from higest to lowest
+    rankings.sort()
+    rankings.reverse()
+    return rankings
+
+itemsim = calculateSimilarItems(critics)
+print("Calculating similar items: \n\t" + str(itemsim))
+print("\nCalculated Recommended items:\n\t", getRecommendedItems(critics, itemsim, 'Toby'))
